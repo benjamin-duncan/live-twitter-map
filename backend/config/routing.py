@@ -1,7 +1,7 @@
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 
-from core import routing
+from core import routing # pyright: reportMissingImports=false
 
 application = ProtocolTypeRouter(
     {

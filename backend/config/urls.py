@@ -1,6 +1,6 @@
 from django.urls import path
 
-from core import views
+from core import views # pyright: reportMissingImports=false
 
 urlpatterns = [
     # Template of frontend.

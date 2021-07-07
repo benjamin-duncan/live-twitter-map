@@ -2,9 +2,13 @@ import json
 import os
 import uuid
 import random
+import re
 
-from asgiref.sync import sync_to_async
-from channels.generic.websocket import AsyncWebsocketConsumer, AsyncJsonWebsocketConsumer
+from channels.db import database_sync_to_async
+from channels.generic.websocket import (
+    AsyncWebsocketConsumer,
+    AsyncJsonWebsocketConsumer,
+)
 from django.core.exceptions import ObjectDoesNotExist
 
 from .redis import redis
@@ -44,9 +48,7 @@ class TweetsConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"message": message}))
 
 
-
 class GameConsumer(AsyncJsonWebsocketConsumer):
-
     async def connect(self):
         await self.accept()
         session = str(uuid.uuid4())
@@ -57,49 +59,57 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
     async def disconect(self):
         await self.disconnect()
 
-    async def receive(self,text_data):
+    async def receive(self, text_data):
         response = json.loads(text_data)
         id = response.get("id", None)
         answer = response.get("answer", None)
         session = response.get("session", None)
 
         if id is None or answer is None or session is None:
-            await self.send_json({"error":"invalid JSON"})
+            await self.send_json({"error": "invalid JSON"})
 
         elif redis.get(id) is None:
             await self.send_json({"error": "question already answered"})
 
         elif redis.get(id) == answer:
             score = int(redis.get(session)) + 1
-            redis.set(session,score)
-            await self.send_json({"response": "correct","score": score})
+            redis.set(session, score)
+            await self.send_json({"response": "correct", "score": score})
 
         else:
-            redis.set(session,0)
+            redis.set(session, 0)
             await self.send_json({"response": "incorrect", "score": 0})
 
         redis.delete(id)
         await self.send_question()
 
     async def send_question(self):
-        question=str(uuid.uuid4())
-        redis.set(question,"London")
+        question = str(uuid.uuid4())
+        redis.set(question, "London")
         tweet = await self.get_random_tweet()
-        if tweet.lon > 53:
-            redis.set(question,"North")
-        else:
-            redis.set(question,"South")
-        await self.send_json({"question": question, "text": tweet.text, "lat": tweet.lon})
+        # print(vars(tweet))
+        try:
+            if tweet.lon > 53:
+                redis.set(question, "North")
+            else:
+                redis.set(question, "South")
+            await self.send_json(
+                {"question": question, "text": tweet.text, "lat": tweet.lon}
+            )
+        except AttributeError:
+            await self.send_json({"error": "something didn't work :("})
 
-    @sync_to_async
+    @database_sync_to_async
     def get_random_tweet(self):
         from .models import Tweet
-        try:
-            query = Tweet.objects.get(id=random.randint(1,Tweet.objects.count()))
-            return query
-        except ObjectDoesNotExist:
-            self.get_random_tweet()
 
-    
-    
+        while True:
+            try:
+                query = Tweet.objects.get(id=random.randint(1, Tweet.objects.count()))
+                query.text = re.sub("https?:\/\/(t\.co)?[^\s]*", "", query.text)
+                if len(query.text) > 60 and query.lon is not None:
+                    break
+            except ObjectDoesNotExist:
+                continue
 
+        return query
