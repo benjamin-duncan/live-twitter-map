@@ -1,14 +1,14 @@
 from __future__ import absolute_import, unicode_literals
-from asgiref.sync import async_to_sync
 import os
 import time
 
+from asgiref.sync import async_to_sync
 from celery import Celery
 import channels.layers
 from django.core import serializers
 
-from backend.core.consumers import TweetsConsumer
-from backend.core.redis import redis
+from .consumers import TweetsConsumer
+from .redis import redis
 
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
@@ -24,7 +24,7 @@ def setup_periodic_tasks(sender, **kwargs):
 
 @app.task
 def tweet_beat(group=TweetsConsumer.GROUP, event="text_message"):
-    from backend.core.models import Tweet
+    from .models import Tweet
 
     t = int(time.time()) * 1000
     max_tweet = Tweet.objects.filter(timestamp_ms__lt=t).order_by("-timestamp_ms")[0]

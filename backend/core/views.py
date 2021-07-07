@@ -15,8 +15,8 @@ def index(request):
 
 
 # Only needed for manually debugging purposes
-# def map(request):
-#     return render(request, 'tweets/map.html')
+def map(request):
+    return render(request, 'tweets/map.html')
 
 
 def health(request):
@@ -101,3 +101,24 @@ def graph(request):
         )
 
     return Response(data)
+
+"""
+
+guess:
+wales
+scotland
+ireland
+north
+south
+london
+
+"""
+@api_view(["GET"])
+def geo_search(request):
+    n = 5
+    lat = 51.4
+    lon = 0
+
+    query_set = Tweet.objects.filter(
+
+    )
